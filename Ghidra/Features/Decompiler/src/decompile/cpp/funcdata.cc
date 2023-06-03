@@ -30,7 +30,7 @@ ElementId ELEM_VARNODES = ElementId("varnodes",119);
 /// \param addr is the entry address for the function
 /// \param sym is the symbol representing the function
 /// \param sz is the number of bytes (of code) in the function body
-Funcdata::Funcdata(const string &nm,Scope *scope,const Address &addr,FunctionSymbol *sym,int4 sz)
+Funcdata::Funcdata(const string &nm,const string &disp,Scope *scope,const Address &addr,FunctionSymbol *sym,int4 sz)
   : baseaddr(addr),
     funcp(),
     vbank(scope->getArch()),
@@ -47,6 +47,7 @@ Funcdata::Funcdata(const string &nm,Scope *scope,const Address &addr,FunctionSym
   glb = scope->getArch();
   minLanedSize = glb->getMinimumLanedRegisterSize();
   name = nm;
+  displayName = disp;
 
   size = sz;
   AddrSpace *stackid = glb->getStackSpace();
@@ -734,9 +735,13 @@ uint8 Funcdata::decode(Decoder &decoder)
       if (decoder.readBool())
 	flags |= no_code;
     }
+    else if (attribId == ATTRIB_LABEL)
+      displayName = decoder.readString();
   }
   if (name.size() == 0)
     throw LowlevelError("Missing function name");
+  if (displayName.size() == 0)
+    displayName = name;
   if (size == -1)
     throw LowlevelError("Missing function size");
   baseaddr = Address::decode( decoder );
@@ -887,6 +892,21 @@ bool Funcdata::setUnionField(const Datatype *parent,const PcodeOp *op,int4 slot,
       return false;
     }
     (*res.first).second = resolve;
+  }
+  if (op->code() == CPUI_MULTIEQUAL && slot >= 0) {
+    // Data-type propagation doesn't happen between MULTIEQUAL input slots holding the same Varnode
+    // So if this is a MULTIEQUAL, copy resolution to any other input slots holding the same Varnode
+    const Varnode *vn = op->getIn(slot);		// The Varnode being directly set
+    for(int4 i=0;i<op->numInput();++i) {
+      if (i == slot) continue;
+      if (op->getIn(i) != vn) continue;		// Check that different input slot holds same Varnode
+      ResolveEdge dupedge(parent,op,i);
+      res = unionMap.emplace(dupedge,resolve);
+      if (!res.second) {
+	if (!(*res.first).second.isLocked())
+	  (*res.first).second = resolve;
+      }
+    }
   }
   return true;
 }
