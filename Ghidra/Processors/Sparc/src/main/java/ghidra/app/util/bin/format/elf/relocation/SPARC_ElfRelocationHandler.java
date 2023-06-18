@@ -17,9 +17,11 @@ package ghidra.app.util.bin.format.elf.relocation;
 
 import ghidra.app.util.bin.format.elf.*;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
+import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.reloc.RelocationResult;
 import ghidra.program.model.reloc.Relocation.Status;
 import ghidra.util.exception.NotFoundException;
@@ -86,7 +88,6 @@ public class SPARC_ElfRelocationHandler extends ElfRelocationHandler {
 				memory.setInt(relocationAddress, oldValue | newValue);
 				break;
 			case SPARC_ElfRelocationConstants.R_SPARC_JMP_SLOT:
-				// should copy address of symbol in EXTERNAL block
 			case SPARC_ElfRelocationConstants.R_SPARC_32:
 				newValue = (int) symbolValue + (int) addend;
 				memory.setInt(relocationAddress, newValue);
@@ -97,7 +98,7 @@ public class SPARC_ElfRelocationHandler extends ElfRelocationHandler {
 				memory.setInt(relocationAddress, newValue);
 				break;
 			case SPARC_ElfRelocationConstants.R_SPARC_RELATIVE:
-				newValue = (int) elf.getImageBase() + (int) addend;
+				newValue = (int) elfRelocationContext.getImageBaseWordAdjustmentOffset() + (int) addend;
 				memory.setInt(relocationAddress, newValue);
 				break;
 			case SPARC_ElfRelocationConstants.R_SPARC_UA32:
